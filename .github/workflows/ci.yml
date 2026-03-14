@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build-test:
+    name: Build, tests and coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build + testes + cobertura
+        run: mvn clean test jacoco:report -Dheadless=true
+
+      - name: Upload relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: |
+            target/surefire-reports
+            target/site/jacoco
+
+      - name: Resumo da execução
+        if: always()
+        run: |
+          {
+            echo "## CI Summary"
+            echo ""
+            echo "- Branch/Ref: \`${GITHUB_REF}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Java: 21"
+            echo "- Maven build/test: concluído"
+            echo "- Relatórios enviados como artifact: \`ci-reports\`"
+          } >> "$GITHUB_STEP_SUMMARY"

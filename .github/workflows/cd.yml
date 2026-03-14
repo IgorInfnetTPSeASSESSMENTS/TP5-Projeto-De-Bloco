@@ -1,0 +1,160 @@
+name: CD
+
+on:
+  push:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: sa-east-1
+
+jobs:
+  build-test:
+    name: Build, tests and coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build + testes + cobertura
+        run: mvn clean test jacoco:report -Dheadless=true
+
+      - name: Upload relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            target/surefire-reports
+            target/site/jacoco
+
+      - name: Resumo build
+        if: always()
+        run: |
+          {
+            echo "## Build Summary"
+            echo ""
+            echo "- Build/test executado com Maven"
+            echo "- Cobertura JaCoCo gerada"
+            echo "- Artifact: \`build-reports\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  docker:
+    name: Build and push Docker image
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Definir tag da imagem
+        id: meta
+        run: echo "image_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build da imagem Docker
+        run: |
+          docker build \
+            -t "${{ secrets.DOCKER_IMAGE }}:${{ steps.meta.outputs.image_tag }}" \
+            -t "${{ secrets.DOCKER_IMAGE }}:latest" \
+            .
+
+      - name: Push da imagem Docker
+        run: |
+          docker push "${{ secrets.DOCKER_IMAGE }}:${{ steps.meta.outputs.image_tag }}"
+          docker push "${{ secrets.DOCKER_IMAGE }}:latest"
+
+      - name: Resumo Docker
+        run: |
+          {
+            echo "## Docker Summary"
+            echo ""
+            echo "- Imagem buildada"
+            echo "- Imagem publicada no ECR"
+            echo "- Tag versionada: \`${{ steps.meta.outputs.image_tag }}\`"
+            echo "- Tag latest: \`latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  infra-dev:
+    name: Terraform apply dev
+    needs: docker
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/infra_terraform.yml
+    with:
+      apply: true
+      environment_name: dev
+    secrets: inherit
+
+  deploy-dev:
+    name: Deploy ECS dev
+    needs: [docker, infra-dev]
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy_ecs.yml
+    with:
+      image_tag: ${{ needs.docker.outputs.image_tag }}
+      environment_name: dev
+    secrets: inherit
+
+  smoke-dev:
+    name: Post-deploy smoke dev
+    needs: deploy-dev
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/post_deploy_selenium.yml
+    with:
+      environment_name: dev
+    secrets: inherit
+
+  infra-prod:
+    name: Terraform apply prod
+    needs: docker
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/infra_terraform.yml
+    with:
+      apply: true
+      environment_name: prod
+    secrets: inherit
+
+  deploy-prod:
+    name: Deploy ECS prod
+    needs: [docker, infra-prod]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/deploy_ecs.yml
+    with:
+      image_tag: ${{ needs.docker.outputs.image_tag }}
+      environment_name: prod
+    secrets: inherit
+
+  smoke-prod:
+    name: Post-deploy smoke prod
+    needs: deploy-prod
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/post_deploy_selenium.yml
+    with:
+      environment_name: prod
+    secrets: inherit

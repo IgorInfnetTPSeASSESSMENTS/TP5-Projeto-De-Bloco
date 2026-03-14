@@ -9,18 +9,17 @@ public abstract class BaseRemoteWebTest {
     protected WebDriver driver;
     protected String baseUrl;
 
+
     @BeforeEach
     void setUpDriver() {
         driver = DriverFactory.createChrome();
-        baseUrl = System.getProperty("app.baseUrl");
 
-        if (baseUrl == null || baseUrl.isBlank()) {
-            throw new IllegalStateException("System property 'app.baseUrl' was not provided.");
+        String configuredBaseUrl = System.getProperty("app.baseUrl");
+        if (configuredBaseUrl == null || configuredBaseUrl.isBlank()) {
+            configuredBaseUrl = "http://localhost:8080";
         }
 
-        if (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        }
+        baseUrl = configuredBaseUrl;
     }
 
     @AfterEach

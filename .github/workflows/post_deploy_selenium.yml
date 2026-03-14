@@ -53,11 +53,10 @@ jobs:
 
       - name: Rodar smoke test pós-deploy
         run: |
-          mvn \
+          mvn test \
             -Dtest=PostDeploySmokeTest \
             -Dapp.baseUrl="${APP_BASE_URL}" \
-            -Dheadless=true \
-            test
+            -Dheadless=true
 
       - name: Upload relatório pós-deploy
         if: always()

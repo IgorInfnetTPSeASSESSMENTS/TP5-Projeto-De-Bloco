@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("postdeploy")
-public class PostDeploySmokeTest extends BaseRemoteWebTest {
+public class PostDeploySmokeIT extends BaseRemoteWebTest {
 
     @Test
     void shouldLoadHomePageAndNavigateToShelters() {

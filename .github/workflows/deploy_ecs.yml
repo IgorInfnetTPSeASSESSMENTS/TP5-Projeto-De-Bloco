@@ -9,6 +9,9 @@ on:
       environment_name:
         required: true
         type: string
+      alb_dns_name:
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -92,16 +95,11 @@ jobs:
             --services "${{ secrets.ECS_SERVICE_NAME }}"
 
       - name: Health check da aplicação e rollback se falhar
-        env:
-          ALB_NAME: ${{ secrets.ALB_NAME }}
         run: |
-          ALB_DNS=$(aws elbv2 describe-load-balancers \
-            --names "$ALB_NAME" \
-            --query 'LoadBalancers[0].DNSName' \
-            --output text)
+          ALB_DNS="${{ inputs.alb_dns_name }}"
 
           if [ -z "$ALB_DNS" ] || [ "$ALB_DNS" = "None" ]; then
-            echo "Erro: não consegui obter o DNS do ALB com nome $ALB_NAME"
+            echo "Erro: ALB DNS não foi recebido pelo workflow."
             exit 1
           fi
 
@@ -150,5 +148,6 @@ jobs:
             echo "- Cluster: \`${{ secrets.ECS_CLUSTER_NAME }}\`"
             echo "- Service: \`${{ secrets.ECS_SERVICE_NAME }}\`"
             echo "- Image tag: \`${{ inputs.image_tag }}\`"
+            echo "- ALB DNS: \`${{ inputs.alb_dns_name }}\`"
             echo "- Deploy e health check executados"
           } >> "$GITHUB_STEP_SUMMARY"

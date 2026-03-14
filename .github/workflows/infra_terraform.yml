@@ -9,6 +9,10 @@ on:
       environment_name:
         required: true
         type: string
+    outputs:
+      alb_dns_name:
+        description: "DNS do ALB criado pelo Terraform"
+        value: ${{ jobs.terraform.outputs.alb_dns_name }}
   workflow_dispatch:
 
 permissions:
@@ -17,9 +21,9 @@ permissions:
 
 jobs:
   terraform:
-    name: Terraform
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment_name }}
+    outputs:
+      alb_dns_name: ${{ steps.alb-output.outputs.alb_dns_name }}
 
     defaults:
       run:
@@ -29,7 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar AWS via OIDC
+      - name: Configurar credenciais AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
@@ -65,13 +69,17 @@ jobs:
             -var="public_subnet_ids=${{ secrets.AWS_PUBLIC_SUBNET_IDS }}" \
             -var="docker_image=${{ secrets.DOCKER_IMAGE }}:latest"
 
+      - name: Capturar output do ALB
+        id: alb-output
+        run: |
+          ALB_DNS=$(terraform output -raw alb_dns_name)
+          echo "alb_dns_name=$ALB_DNS" >> "$GITHUB_OUTPUT"
+
       - name: Resumo Terraform
-        if: always()
         run: |
           {
             echo "## Terraform Summary"
             echo ""
-            echo "- Environment: \`${{ inputs.environment_name }}\`"
-            echo "- Init/validate/plan executados"
-            echo "- Apply executado: \`${{ inputs.apply || github.event_name == 'workflow_dispatch' }}\`"
+            echo "- Ambiente: ${{ inputs.environment_name }}"
+            echo "- ALB DNS: ${{ steps.alb-output.outputs.alb_dns_name }}"
           } >> "$GITHUB_STEP_SUMMARY"

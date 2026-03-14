@@ -113,12 +113,13 @@ jobs:
 
   deploy-dev:
     name: Deploy ECS dev
-    needs: [docker, infra-dev]
+    needs: [ docker, infra-dev ]
     if: github.ref == 'refs/heads/develop'
     uses: ./.github/workflows/deploy_ecs.yml
     with:
       image_tag: ${{ needs.docker.outputs.image_tag }}
       environment_name: dev
+      alb_dns_name: ${{ needs.infra-dev.outputs.alb_dns_name }}
     secrets: inherit
 
   smoke-dev:
@@ -142,12 +143,13 @@ jobs:
 
   deploy-prod:
     name: Deploy ECS prod
-    needs: [docker, infra-prod]
+    needs: [ docker, infra-prod ]
     if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/deploy_ecs.yml
     with:
       image_tag: ${{ needs.docker.outputs.image_tag }}
       environment_name: prod
+      alb_dns_name: ${{ needs.infra-prod.outputs.alb_dns_name }}
     secrets: inherit
 
   smoke-prod:

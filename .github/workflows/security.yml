@@ -16,6 +16,8 @@ jobs:
     name: OWASP Dependency Check
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
     steps:
       - name: Checkout
@@ -40,6 +42,7 @@ jobs:
 
       - name: Limpar base corrompida anterior
         run: |
+          mvn org.owasp:dependency-check-maven:purge || true
           rm -rf ~/.m2/repository/org/owasp/dependency-check-data || true
           rm -rf ~/.dependency-check || true
 
@@ -48,19 +51,24 @@ jobs:
         continue-on-error: true
         run: |
           mvn org.owasp:dependency-check-maven:check \
-            -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+            -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+            -DnvdMaxRetryCount=20 \
+            -DnvdApiDelay=5000 \
             -Dformats=HTML,JSON \
             -DfailBuildOnCVSS=7 \
             -DossindexAnalyzerEnabled=false
 
-      - name: Retry após limpeza do banco
+      - name: Retry após purge
         if: steps.dc.outcome == 'failure'
         run: |
+          mvn org.owasp:dependency-check-maven:purge || true
           rm -rf ~/.m2/repository/org/owasp/dependency-check-data || true
           rm -rf ~/.dependency-check || true
 
           mvn org.owasp:dependency-check-maven:check \
-            -DnvdApiKey="${{ secrets.NVD_API_KEY }}" \
+            -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+            -DnvdMaxRetryCount=20 \
+            -DnvdApiDelay=5000 \
             -Dformats=HTML,JSON \
             -DfailBuildOnCVSS=7 \
             -DossindexAnalyzerEnabled=false
@@ -81,6 +89,7 @@ jobs:
             echo "## Security Summary"
             echo ""
             echo "- OWASP Dependency-Check executado"
+            echo "- NVD API Key fornecida via environment variable"
             echo "- Relatórios gerados em HTML e JSON"
             echo "- Artifact: \`dependency-check-report\`"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -154,9 +154,10 @@ jobs:
 
   smoke-prod:
     name: Post-deploy smoke prod
-    needs: deploy-prod
+    needs: [ deploy-prod, infra-prod ]
     if: github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/post_deploy_selenium.yml
     with:
       environment_name: prod
+      alb_dns_name: ${{ needs.infra-prod.outputs.alb_dns_name }}
     secrets: inherit

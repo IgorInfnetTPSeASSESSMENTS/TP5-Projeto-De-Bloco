@@ -6,6 +6,9 @@ on:
       environment_name:
         required: true
         type: string
+      alb_dns_name:
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -34,22 +37,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
           aws-region: sa-east-1
 
-      - name: Descobrir DNS do ALB
-        env:
-          ALB_NAME: ${{ secrets.ALB_NAME }}
+      - name: Definir URL da aplicação
         run: |
-          ALB_DNS=$(aws elbv2 describe-load-balancers \
-            --names "$ALB_NAME" \
-            --query 'LoadBalancers[0].DNSName' \
-            --output text)
+          ALB_DNS="${{ inputs.alb_dns_name }}"
 
           if [ -z "$ALB_DNS" ] || [ "$ALB_DNS" = "None" ]; then
-            echo "Erro ao descobrir DNS do ALB"
+            echo "Erro: ALB DNS não foi recebido pelo workflow."
             exit 1
           fi
 
           echo "APP_BASE_URL=http://${ALB_DNS}" >> "$GITHUB_ENV"
-          echo "Base URL descoberta: http://${ALB_DNS}"
+          echo "Base URL definida: http://${ALB_DNS}"
 
       - name: Rodar smoke test pós-deploy
         run: |

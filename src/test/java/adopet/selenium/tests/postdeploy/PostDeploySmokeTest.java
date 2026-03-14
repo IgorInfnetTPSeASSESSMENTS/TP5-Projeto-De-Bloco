@@ -3,11 +3,13 @@ package adopet.selenium.tests.postdeploy;
 import adopet.selenium.base.BaseRemoteWebTest;
 import adopet.selenium.pages.HomePage;
 import adopet.selenium.pages.shelters.SheltersListPage;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("postdeploy")
 public class PostDeploySmokeTest extends BaseRemoteWebTest {
 
     @Test

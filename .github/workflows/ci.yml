@@ -28,7 +28,7 @@ jobs:
           cache: maven
 
       - name: Build + testes + cobertura
-        run: mvn clean test jacoco:report -Dheadless=true
+        run: mvn clean test jacoco:report -Dheadless=true -Djunit.jupiter.exclude.tags=postdeploy
 
       - name: Upload relatórios
         if: always()

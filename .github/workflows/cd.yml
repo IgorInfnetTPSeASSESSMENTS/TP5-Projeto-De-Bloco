@@ -129,6 +129,7 @@ jobs:
     uses: ./.github/workflows/post_deploy_selenium.yml
     with:
       environment_name: dev
+      alb_dns_name: ${{ needs.infra-dev.outputs.alb_dns_name }}
     secrets: inherit
 
   infra-prod:
